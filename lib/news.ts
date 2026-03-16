@@ -14,6 +14,44 @@ export async function fetchOneFeedPublic(feedUrl: string, sourceName: string, li
   return fetchOneFeed(feedUrl, sourceName, limit);
 }
 
+// Fetch RSS 1.0 (RDF format) feeds like Mainichi Shimbun
+export async function fetchRDFFeed(feedUrl: string, sourceName: string): Promise<NewsItem[]> {
+  const res = await fetch(feedUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      Accept: "application/rss+xml, application/xml, text/xml, */*",
+    },
+  });
+
+  if (!res.ok) throw new Error(`RDF fetch error: ${res.status}`);
+
+  const xml = await res.text();
+  const $ = cheerio.load(xml, { xmlMode: true });
+
+  const items: NewsItem[] = [];
+
+  $("item").each((_, el) => {
+    const title = $(el).find("title").text().trim();
+    // In RSS 1.0, <link> is a text node
+    const link = $(el).find("link").text().trim();
+    const pubDate = $(el).find("dc\\:date, date").text().trim();
+
+    if (title && link && items.length < 10) {
+      const date = pubDate ? new Date(pubDate) : new Date();
+      items.push({
+        rank: items.length + 1,
+        title,
+        url: link,
+        source: sourceName,
+        publishedAt: date.toISOString(),
+        relativeTime: toRelativeTime(date),
+      });
+    }
+  });
+
+  return items;
+}
+
 async function fetchOneFeed(feedUrl: string, sourceName: string, limit: number): Promise<Omit<NewsItem, "rank">[]> {
   const res = await fetch(feedUrl, {
     headers: {

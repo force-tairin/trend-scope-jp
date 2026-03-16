@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchRSS } from "@/lib/news";
+import { fetchRDFFeed } from "@/lib/news";
 import { getCache, setCache } from "@/lib/cache";
 
 export async function GET() {
@@ -7,7 +7,11 @@ export async function GET() {
   if (cached) return NextResponse.json({ news: cached, cached: true });
 
   try {
-    const items = await fetchRSS("https://www3.nhk.or.jp/rss/news/cat4.xml", "NHK");
+    // 毎日新聞ニュース速報 (RSS 1.0/RDF形式, 無料, 20件)
+    const items = await fetchRDFFeed(
+      "https://mainichi.jp/rss/etc/mainichi-flash.rss",
+      "毎日新聞"
+    );
     if (items.length === 0) throw new Error("No politics news found");
     setCache("news_politics", items);
     return NextResponse.json({ news: items, cached: false });
